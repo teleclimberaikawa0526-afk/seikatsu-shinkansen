@@ -396,7 +396,8 @@
         const baseTasks = [
           { id: "t1", label: "あさごはん", icon: "🍙" },
           { id: "t2", label: "あさのはみがき", icon: "🪥" },
-          { id: "t3", label: "きがえ、みじたく", icon: "👕" },
+          { id: "t3", label: "きがえ", icon: "👕" },
+          { id: "t9", label: "ハンカチのじゅんび", icon: "🧻" },
           { id: "t4", label: "ばんごはん", icon: "🍛" },
           { id: "t5", label: "よるのはみがき", icon: "🦷" },
           { id: "t6", label: "学校のしゅくだい", icon: "✏️" },
@@ -491,11 +492,26 @@
           if (!data.value.dailyLogs[dateStr]) data.value.dailyLogs[dateStr] = {};
           
           const wasDone = data.value.dailyLogs[dateStr][taskId];
+          const wasAllDoneBefore = isAllDone(dateStr);
+
           data.value.dailyLogs[dateStr][taskId] = !wasDone;
 
           if (!wasDone) {
             data.value.miles += 1;
+            
+            // ぜんぶ達成ボーナス 3マイル
+            if (!wasAllDoneBefore && isAllDone(dateStr)) {
+              data.value.miles += 3;
+              alert('ぜんぶクリア！ボーナス 3マイル ゲット！');
+            }
+            
             if (audioStarted.value) playCheckSound();
+          } else {
+            // チェックを外した場合はマイルを戻す（不正防止）
+            data.value.miles = Math.max(0, data.value.miles - 1);
+            if (wasAllDoneBefore && !isAllDone(dateStr)) {
+              data.value.miles = Math.max(0, data.value.miles - 3);
+            }
           }
         };
 
