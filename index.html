@@ -397,9 +397,11 @@
           { id: "t1", label: "あさごはん", icon: "🍙" },
           { id: "t2", label: "あさのはみがき", icon: "🪥" },
           { id: "t3", label: "きがえ", icon: "👕" },
-          { id: "t9", label: "ハンカチのじゅんび", icon: "🧻" },
+          { id: "t10", label: "きゅうしょくセットのじゅんび", icon: "🥢" },
+          { id: "t9", label: "ハンカチのじゅんび", icon: "👝" },
+          { id: "t11", label: "きゅうしょくせっとのかたづけ", icon: "🍽️" },
           { id: "t4", label: "ばんごはん", icon: "🍛" },
-          { id: "t5", label: "よるのはみがき", icon: "🦷" },
+          { id: "t5", label: "よるのはみがき", icon: "🪥" },
           { id: "t6", label: "学校のしゅくだい", icon: "✏️" },
           { id: "t7", label: "あしたのじゅんび", icon: "🎒" },
           { id: "t8", label: "ねるじかんをまもった", icon: "💤" }
@@ -499,10 +501,10 @@
           if (!wasDone) {
             data.value.miles += 1;
             
-            // ぜんぶ達成ボーナス 3マイル
+            // ぜんぶ達成ボーナス 2マイル
             if (!wasAllDoneBefore && isAllDone(dateStr)) {
-              data.value.miles += 3;
-              alert('ぜんぶクリア！ボーナス 3マイル ゲット！');
+              data.value.miles += 2;
+              alert('ぜんぶクリア！ボーナス 2マイル ゲット！');
             }
             
             if (audioStarted.value) playCheckSound();
@@ -510,7 +512,7 @@
             // チェックを外した場合はマイルを戻す（不正防止）
             data.value.miles = Math.max(0, data.value.miles - 1);
             if (wasAllDoneBefore && !isAllDone(dateStr)) {
-              data.value.miles = Math.max(0, data.value.miles - 3);
+              data.value.miles = Math.max(0, data.value.miles - 2);
             }
           }
         };
