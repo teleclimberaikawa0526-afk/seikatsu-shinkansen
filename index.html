@@ -62,14 +62,29 @@
           🚄 せいかつリズム＆しゅくだい
         </h1>
         
-        <!-- 達成率バー (今週) -->
-        <div class="mt-3 bg-slate-900/40 rounded-xl p-2 border border-white/20">
-          <div class="flex justify-between text-[10px] text-sky-200 mb-1">
-            <span>今週のクリア率</span>
-            <span>{{ weeklyProgress }}%</span>
-          </div>
-          <div class="h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-            <div class="h-full bg-emerald-400 transition-all duration-500" :style="{ width: weeklyProgress + '%' }"></div>
+        <!-- 達成率バー -->
+        <div class="mt-3 bg-slate-900/40 rounded-xl p-3 border border-white/20">
+          <div class="grid grid-cols-2 gap-3">
+            <!-- 今週 -->
+            <div>
+              <div class="flex justify-between text-[10px] text-sky-200 mb-1">
+                <span>今週のクリア率</span>
+                <span class="font-bold">{{ weeklyProgress }}%</span>
+              </div>
+              <div class="h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div class="h-full bg-emerald-400 transition-all duration-500" :style="{ width: weeklyProgress + '%' }"></div>
+              </div>
+            </div>
+            <!-- 今月 -->
+            <div>
+              <div class="flex justify-between text-[10px] text-sky-200 mb-1">
+                <span>今月のクリア率</span>
+                <span class="font-bold">{{ monthlyProgress }}%</span>
+              </div>
+              <div class="h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div class="h-full bg-yellow-400 transition-all duration-500" :style="{ width: monthlyProgress + '%' }"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -168,7 +183,7 @@
       <div class="w-full relative h-64 flex items-center justify-center">
         <!-- 軌跡 -->
         <div class="absolute inset-x-0 top-1/2 border-b-8 border-dashed border-slate-400 opacity-50"></div>
-        <img :src="selectedTrainImage" class="w-[800px] animate-train-run train-img relative z-10" alt="Train">
+        <img v-if="selectedTrainImage" :src="selectedTrainImage" class="w-[800px] animate-train-run train-img relative z-10" alt="Train">
       </div>
     </div>
 
@@ -276,7 +291,7 @@
   <script>
     const { createApp, ref, computed, watch, onMounted } = Vue;
 
-    const STORE_KEY = 'rhythm_shinkansen_data_v1';
+    const STORE_KEY = 'rhythm_shinkansen_data_v2';
     
     // Audio Context Setup
     let audioCtx = null;
@@ -289,72 +304,70 @@
       }
     };
 
-    const playCheckSound = () => {
-      if(!audioCtx) return;
+    const playBeep = (freq, duration, type = 'sine') => {
+      if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
       osc.start();
-      osc.stop(audioCtx.currentTime + 0.2);
+      osc.stop(audioCtx.currentTime + duration);
+    };
+
+    const playCheckSound = () => {
+      playBeep(800, 0.05, 'triangle');
+      setTimeout(() => { playBeep(1200, 0.08, 'sine'); }, 40);
     };
 
     const playTrainSound = () => {
-      if(!audioCtx) return;
-      // 汽笛音 (Whistle)
-      const osc = audioCtx.createOscillator();
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.connect(gain);
+
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(660, now);
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(880, now);
+      
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1200, now);
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.1, now + 0.1);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
       gain.connect(audioCtx.destination);
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-      osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 1.5);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.8);
+      osc2.stop(now + 0.8);
       
-      // 走行音 (Rumble)
-      const bufferSize = audioCtx.sampleRate * 2.5;
-      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
+      // Chug chug sound
+      for (let i = 0; i < 4; i++) {
+        setTimeout(() => {
+          playBeep(120, 0.05, 'triangle');
+          setTimeout(() => { playBeep(90, 0.05, 'triangle'); }, 60);
+        }, i * 300);
       }
-      const noise = audioCtx.createBufferSource();
-      noise.buffer = buffer;
-      const noiseFilter = audioCtx.createBiquadFilter();
-      noiseFilter.type = 'lowpass';
-      noiseFilter.frequency.value = 400;
-      const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0, audioCtx.currentTime);
-      noiseGain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.5);
-      noiseGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2.5);
-      
-      noise.connect(noiseFilter);
-      noiseFilter.connect(noiseGain);
-      noiseGain.connect(audioCtx.destination);
-      noise.start();
     };
 
     const playGachaSound = () => {
-      if(!audioCtx) return;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-      osc.frequency.linearRampToValueAtTime(1760, audioCtx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.5);
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, index) => {
+        setTimeout(() => { playBeep(freq, 0.15, 'sine'); }, index * 100);
+      });
     };
 
     // YYYY-MM-DD
@@ -369,7 +382,8 @@
         const startAudio = () => {
           initAudio();
           audioStarted.value = true;
-          playCheckSound();
+          playBeep(440, 0.1);
+          playTrainSound();
         };
 
         const trainDatabase = [
@@ -392,8 +406,8 @@
 
         const defaultData = {
           miles: 0,
-          collectedTrains: ["hayabusa"],
-          selectedTrainId: "hayabusa",
+          collectedTrains: [],
+          selectedTrainId: "",
           dailyLogs: {},
           customTasks: {}, // { 'YYYY-MM-DD': [{id: 'c1', label: 'プール'}] }
           parentPassword: "0000",
@@ -505,6 +519,19 @@
             const tmp = new Date(d);
             tmp.setDate(tmp.getDate() - i);
             const ds = `${tmp.getFullYear()}-${String(tmp.getMonth()+1).padStart(2,'0')}-${String(tmp.getDate()).padStart(2,'0')}`;
+            tasksDone += dailyTaskCount(ds);
+            totalTasks += totalDailyTasks(ds);
+          }
+          if (totalTasks === 0) return 0;
+          return Math.min(100, Math.floor((tasksDone / totalTasks) * 100));
+        });
+
+        const monthlyProgress = computed(() => {
+          let tasksDone = 0;
+          let totalTasks = 0;
+          const d = new Date();
+          for(let i=1; i<=d.getDate(); i++) {
+            const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
             tasksDone += dailyTaskCount(ds);
             totalTasks += totalDailyTasks(ds);
           }
@@ -686,7 +713,7 @@
           changeDate, formatDateDisplay,
           dailyTaskCount, totalDailyTasks, isTaskDone, toggleTask, getCustomTasks, isAllDone,
           departTrain, showDepartureAnim, selectedTrainImage,
-          weeklyProgress,
+          weeklyProgress, monthlyProgress,
           isUnlocked, selectTrain, spinGacha, gachaResult,
           nextDaySchedule, nextDayName,
           showSecretModal, secretTrainData, claimSecret,
