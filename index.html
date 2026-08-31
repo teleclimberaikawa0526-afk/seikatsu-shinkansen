@@ -169,7 +169,7 @@
       </button>
 
       <div class="grid grid-cols-2 gap-3">
-        <div v-for="train in trainDatabase" :key="train.id" @click="isUnlocked(train.id) && selectTrain(train.id)" class="border-2 p-2 rounded-xl flex flex-col items-center justify-center relative transition-all min-h-[90px] bg-white cursor-pointer" :class="[ !isUnlocked(train.id) ? 'opacity-50 grayscale' : '', data.selectedTrainId === train.id ? 'ring-4 ring-sky-400 border-sky-400 scale-105' : 'border-slate-300' ]">
+        <div v-for="train in visibleTrains" :key="train.id" @click="isUnlocked(train.id) && selectTrain(train.id)" class="border-2 p-2 rounded-xl flex flex-col items-center justify-center relative transition-all min-h-[90px] bg-white cursor-pointer" :class="[ !isUnlocked(train.id) ? 'opacity-50 grayscale' : '', data.selectedTrainId === train.id ? 'ring-4 ring-sky-400 border-sky-400 scale-105' : 'border-slate-300' ]">
           <img :src="train.src" class="h-14 w-auto train-img" :alt="train.name" v-if="isUnlocked(train.id)">
           <div v-else class="text-3xl text-slate-300">🔒</div>
           <span class="text-[10px] font-extrabold mt-1 text-slate-700 text-center leading-tight">{{ isUnlocked(train.id) ? train.name : '???' }}</span>
@@ -564,6 +564,7 @@
 
         // ガチャ
         const isUnlocked = (id) => data.value.collectedTrains.includes(id);
+        const visibleTrains = computed(() => trainDatabase.filter(t => !t.secret || isUnlocked(t.id)));
         const selectTrain = (id) => { data.value.selectedTrainId = id; };
 
         const spinGacha = () => {
@@ -733,7 +734,7 @@
 
         return {
           audioStarted, startAudio,
-          data, trainDatabase, baseTasks, selectedDate,
+          data, trainDatabase, visibleTrains, baseTasks, selectedDate,
           changeDate, formatDateDisplay,
           dailyTaskCount, totalDailyTasks, isTaskDone, toggleTask, getCustomTasks, isAllDone,
           departTrain, showDepartureAnim, selectedTrainImage,
