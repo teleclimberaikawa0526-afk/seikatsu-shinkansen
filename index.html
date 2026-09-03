@@ -410,6 +410,7 @@
           { id: "t12", label: "れんらくちょうをチェック", icon: "📓" },
           { id: "t11", label: "きゅうしょくせっとのかたづけ", icon: "🍽️" },
           { id: "t4", label: "ばんごはん", icon: "🍛" },
+          { id: "t13", label: "おふろにはいる", icon: "🛁" },
           { id: "t5", label: "よるのはみがき", icon: "🪥" },
           { id: "t6", label: "学校のしゅくだい", icon: "✏️" },
           { id: "t7", label: "あしたのじゅんび", icon: "🎒" },
@@ -543,9 +544,15 @@
           let tasksDone = 0;
           let totalTasks = 0;
           const d = new Date();
+          const dayOfWeek = d.getDay(); // 0(Sun) - 6(Sat)
+          const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          
+          const startOfWeek = new Date(d);
+          startOfWeek.setDate(d.getDate() + diffToMonday);
+
           for(let i=0; i<7; i++) {
-            const tmp = new Date(d);
-            tmp.setDate(tmp.getDate() - i);
+            const tmp = new Date(startOfWeek);
+            tmp.setDate(startOfWeek.getDate() + i);
             const ds = `${tmp.getFullYear()}-${String(tmp.getMonth()+1).padStart(2,'0')}-${String(tmp.getDate()).padStart(2,'0')}`;
             tasksDone += dailyTaskCount(ds);
             totalTasks += totalDailyTasks(ds);
@@ -558,8 +565,12 @@
           let tasksDone = 0;
           let totalTasks = 0;
           const d = new Date();
-          for(let i=1; i<=d.getDate(); i++) {
-            const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+          const year = d.getFullYear();
+          const month = d.getMonth();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+          for(let i=1; i<=daysInMonth; i++) {
+            const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
             tasksDone += dailyTaskCount(ds);
             totalTasks += totalDailyTasks(ds);
           }
