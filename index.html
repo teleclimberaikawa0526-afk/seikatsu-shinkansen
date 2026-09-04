@@ -99,7 +99,7 @@
       <button @click="changeDate(-1)" class="p-2 bg-sky-100 rounded-xl hover:bg-sky-200">◀ 前日</button>
       <div class="text-center">
         <div class="text-sm text-slate-500 font-bold">{{ formatDateDisplay(selectedDate).yearMonth }}</div>
-        <div class="text-xl font-extrabold text-sky-600">{{ formatDateDisplay(selectedDate).day }} ({{ formatDateDisplay(selectedDate).weekday }})</div>
+        <div class="text-xl font-extrabold" :class="formatDateDisplay(selectedDate).isHol ? 'text-red-500' : 'text-sky-600'">{{ formatDateDisplay(selectedDate).day }} ({{ formatDateDisplay(selectedDate).weekday }})</div>
       </div>
       <button @click="changeDate(1)" class="p-2 bg-sky-100 rounded-xl hover:bg-sky-200">翌日 ▶</button>
     </div>
@@ -113,7 +113,7 @@
 
       <div class="space-y-3">
         <!-- 基本タスク -->
-        <div v-for="task in baseTasks" :key="task.id" @click="toggleTask(selectedDate, task.id)" class="flex items-center justify-between bg-white p-3 rounded-2xl border-2 border-slate-800 cursor-pointer hover:bg-slate-50 transition-all">
+        <div v-for="task in getVisibleBaseTasks(selectedDate)" :key="task.id" @click="toggleTask(selectedDate, task.id)" class="flex items-center justify-between bg-white p-3 rounded-2xl border-2 border-slate-800 cursor-pointer hover:bg-slate-50 transition-all">
           <div class="flex items-center gap-3">
             <span class="text-2xl">{{ task.icon }}</span>
             <span class="font-bold text-sm">{{ task.label }}</span>
@@ -190,11 +190,14 @@
     <!-- モーダル: ガチャ結果 -->
     <div v-if="gachaResult" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
       <div class="bg-white border-4 border-slate-800 rounded-3xl p-6 text-center max-w-sm w-full relative animate-bounce">
-        <h3 class="text-xl font-extrabold text-slate-900 mb-4">✨ あたらしい でんしゃ！ ✨</h3>
-        <div class="bg-sky-50 p-4 rounded-xl border border-sky-200 mb-4">
-          <img :src="gachaResult.src" class="w-full h-32 object-contain train-img mb-2" alt="New Train">
-          <span class="font-bold text-lg block">{{ gachaResult.name }}</span>
-          <span class="text-xs text-sky-600 block">{{ gachaResult.desc }}</span>
+        <h3 class="text-xl font-extrabold text-slate-900 mb-4">
+          <span v-if="gachaResult.isNew">✨ あたらしい でんしゃ！ ✨</span>
+          <span v-else class="text-slate-500">💦 すでにもっている電車だった！ 💦</span>
+        </h3>
+        <div class="p-4 rounded-xl border mb-4" :class="gachaResult.isNew ? 'bg-sky-50 border-sky-200' : 'bg-slate-50 border-slate-200'">
+          <img :src="gachaResult.train.src" class="w-full h-32 object-contain train-img mb-2" alt="Train">
+          <span class="font-bold text-lg block" :class="!gachaResult.isNew && 'text-slate-600'">{{ gachaResult.train.name }}</span>
+          <span class="text-xs block" :class="gachaResult.isNew ? 'text-sky-600' : 'text-slate-400'">{{ gachaResult.train.desc }}</span>
         </div>
         <button @click="gachaResult = null" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold">とじる</button>
       </div>
@@ -268,7 +271,23 @@
           </div>
         </div>
 
-        <!-- 3. データ管理 (おひっこし) -->
+        <!-- 1.5. 手動休日の設定 -->
+        <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
+          <h3 class="font-bold text-sm mb-2">🎌 休日の手動設定</h3>
+          <p class="text-[10px] text-slate-500 mb-2">指定した日付を休日にします（平日限定タスクが表示されなくなります）</p>
+          <div class="flex gap-2 mb-3">
+            <input type="date" v-model="newManualHolidayInput" class="flex-1 border-2 border-slate-300 p-2 rounded-lg text-sm">
+            <button @click="addManualHoliday" class="bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold">追加</button>
+          </div>
+          <ul class="space-y-2 max-h-32 overflow-y-auto">
+            <li v-for="h in data.manualHolidays" :key="h" class="flex justify-between items-center bg-white p-2 rounded border border-slate-200 text-sm">
+              <span>{{ h }}</span>
+              <button @click="removeManualHoliday(h)" class="text-red-500 font-bold px-2 border border-red-200 rounded">削除</button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 2. データのおひっこし -->
         <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
           <h3 class="font-bold text-sm mb-2">💾 セーブデータのおひっこし</h3>
           <textarea v-model="exportDataStr" class="w-full border-2 border-slate-300 rounded-lg p-2 text-xs font-mono h-24 mb-2"></textarea>
@@ -422,12 +441,13 @@
           collectedTrains: [],
           selectedTrainId: "",
           dailyLogs: {},
-          customTasks: {}, // { 'YYYY-MM-DD': [{id: 'c1', label: 'プール'}] }
+          customTasks: {},
           parentPassword: "0000",
-          scheduleData: {}, // { "1": ["国語", "算数"], "2": [...] } 1=月曜
+          scheduleData: {},
           geminiApiKey: "",
           geminiModel: "gemini-2.5-flash",
-          claimedSecrets: []
+          claimedSecrets: [],
+          manualHolidays: []
         };
 
         const data = ref(JSON.parse(JSON.stringify(defaultData)));
@@ -444,12 +464,29 @@
         const showParentDashboard = ref(false);
         
         const newTaskInput = ref('');
+        const newManualHolidayInput = ref('');
         const exportDataStr = ref('');
         const newPasswordInput = ref('');
         const isParsing = ref(false);
 
+        const publicHolidays = ref({});
+        const isHoliday = (dateStr) => {
+          const d = new Date(dateStr);
+          const day = d.getDay();
+          if (day === 0 || day === 6) return true;
+          if (publicHolidays.value[dateStr]) return true;
+          if (data.value.manualHolidays && data.value.manualHolidays.includes(dateStr)) return true;
+          return false;
+        };
+
         // Load data
         onMounted(() => {
+          fetch('https://holidays-jp.github.io/api/v1/date.json')
+            .then(res => res.json())
+            .then(json => { publicHolidays.value = json; })
+            .catch(e => console.error(e));
+
+
           const saved = localStorage.getItem(STORE_KEY);
           if (saved) {
             try {
@@ -475,16 +512,37 @@
         const formatDateDisplay = (dateStr) => {
           const d = new Date(dateStr);
           const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+          let wd = weekdays[d.getDay()];
+          if (isHoliday(dateStr)) {
+            if (publicHolidays.value[dateStr]) wd += '・祝';
+            else if (data.value.manualHolidays && data.value.manualHolidays.includes(dateStr)) wd += '・休';
+          }
           return {
             yearMonth: `${d.getFullYear()}年${d.getMonth()+1}月`,
             day: d.getDate(),
-            weekday: weekdays[d.getDay()]
+            weekday: wd,
+            isHol: isHoliday(dateStr)
           };
         };
 
         // Tasks Logic
         const getCustomTasks = (dateStr) => data.value.customTasks[dateStr] || [];
-        const totalDailyTasks = (dateStr) => baseTasks.length + getCustomTasks(dateStr).length;
+
+        const getVisibleBaseTasks = (dateStr) => {
+          const isHol = isHoliday(dateStr);
+          const d = new Date(dateStr);
+          d.setDate(d.getDate() + 1);
+          const nextDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          const isNextHol = isHoliday(nextDateStr);
+
+          return baseTasks.filter(t => {
+            if (['t10', 't9', 't12', 't11', 't6'].includes(t.id)) return !isHol;
+            if (t.id === 't7') return !isNextHol;
+            return true;
+          });
+        };
+
+        const totalDailyTasks = (dateStr) => getVisibleBaseTasks(dateStr).length + getCustomTasks(dateStr).length;
         
         const isTaskDone = (dateStr, taskId) => {
           return data.value.dailyLogs[dateStr] && data.value.dailyLogs[dateStr][taskId];
@@ -494,7 +552,7 @@
           let count = 0;
           if (!data.value.dailyLogs[dateStr]) return 0;
           const logs = data.value.dailyLogs[dateStr];
-          baseTasks.forEach(t => { if(logs[t.id]) count++; });
+          getVisibleBaseTasks(dateStr).forEach(t => { if(logs[t.id]) count++; });
           getCustomTasks(dateStr).forEach(t => { if(logs[t.id]) count++; });
           return count;
         };
@@ -533,6 +591,37 @@
           if (audioStarted.value) playTrainSound();
           showDepartureAnim.value = true;
           setTimeout(() => { showDepartureAnim.value = false; }, 2600);
+        };
+        const spinGacha = () => {
+          if (data.value.miles < 10) return;
+          data.value.miles -= 10;
+          if (audioStarted.value) playGachaSound();
+          
+          const regularTrains = trainDatabase.filter(t => !t.secret);
+          const unobtainedTrains = regularTrains.filter(t => !isUnlocked(t.id));
+          const obtainedTrains = regularTrains.filter(t => isUnlocked(t.id));
+
+          let hit;
+          if (unobtainedTrains.length === 0) {
+            hit = obtainedTrains[Math.floor(Math.random() * obtainedTrains.length)];
+          } else {
+            const normalChance = unobtainedTrains.length / regularTrains.length;
+            if (normalChance <= 0.3) {
+              if (Math.random() < 0.3) {
+                hit = unobtainedTrains[Math.floor(Math.random() * unobtainedTrains.length)];
+              } else {
+                hit = obtainedTrains[Math.floor(Math.random() * obtainedTrains.length)] || unobtainedTrains[0];
+              }
+            } else {
+              hit = regularTrains[Math.floor(Math.random() * regularTrains.length)];
+            }
+          }
+          
+          const isNew = !isUnlocked(hit.id);
+          if (isNew) {
+            data.value.collectedTrains.push(hit.id);
+          }
+          gachaResult.value = { train: hit, isNew };
         };
         const selectedTrainImage = computed(() => {
           const t = trainDatabase.find(t => t.id === data.value.selectedTrainId);
@@ -583,21 +672,7 @@
         const visibleTrains = computed(() => trainDatabase.filter(t => !t.secret || isUnlocked(t.id)));
         const selectTrain = (id) => { data.value.selectedTrainId = id; };
 
-        const spinGacha = () => {
-          if (data.value.miles < 10) return;
-          data.value.miles -= 10;
-          if (audioStarted.value) playGachaSound();
-          
-          const available = trainDatabase.filter(t => !t.secret && !isUnlocked(t.id));
-          if (available.length > 0) {
-            const hit = available[Math.floor(Math.random() * available.length)];
-            data.value.collectedTrains.push(hit.id);
-            gachaResult.value = hit;
-          } else {
-            alert("ぜんぶもってるよ！ボーナスとしてマイルをかえすね！");
-            data.value.miles += 10;
-          }
-        };
+
 
         // 翌日の時間割
         const nextDaySchedule = computed(() => {
@@ -676,6 +751,21 @@
         const removeCustomTask = (id) => {
           if (!data.value.customTasks[selectedDate.value]) return;
           data.value.customTasks[selectedDate.value] = data.value.customTasks[selectedDate.value].filter(t => t.id !== id);
+        };
+
+        const addManualHoliday = () => {
+          if (!newManualHolidayInput.value) return;
+          if (!data.value.manualHolidays) data.value.manualHolidays = [];
+          if (!data.value.manualHolidays.includes(newManualHolidayInput.value)) {
+            data.value.manualHolidays.push(newManualHolidayInput.value);
+            data.value.manualHolidays.sort();
+          }
+          newManualHolidayInput.value = '';
+        };
+
+        const removeManualHoliday = (dateStr) => {
+          if (!data.value.manualHolidays) return;
+          data.value.manualHolidays = data.value.manualHolidays.filter(d => d !== dateStr);
         };
 
         const exportData = () => {
@@ -760,8 +850,9 @@
           showSecretModal, secretTrainData, claimSecret,
           showPasscodeModal, passcodeInput, showParentDashboard, openParentModal, checkPasscode,
           newTaskInput, addCustomTask, removeCustomTask,
+          newManualHolidayInput, addManualHoliday, removeManualHoliday,
           exportDataStr, exportData, importData, newPasswordInput, changePassword,
-          handleScheduleUpload, isParsing
+          handleScheduleUpload, isParsing, isHoliday, data, getVisibleBaseTasks
         };
       }
     }).mount('#app');
