@@ -173,17 +173,24 @@
           <img :src="train.src" class="h-14 w-auto train-img" :alt="train.name" v-if="isUnlocked(train.id)">
           <div v-else class="text-3xl text-slate-300">🔒</div>
           <span class="text-[10px] font-extrabold mt-1 text-slate-700 text-center leading-tight">{{ isUnlocked(train.id) ? train.name : '???' }}</span>
-          <div v-if="data.selectedTrainId === train.id" class="absolute -top-2 -right-2 bg-sky-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded border border-sky-800">せんたく中</div>
+          <div v-if="data.selectedTrainId === train.id" class="absolute -top-2 -right-2 bg-sky-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded border border-sky-800 z-10">せんたく中</div>
+          <div v-if="isUnlocked(train.id) && getTrainCount(train.id) > 0" class="absolute -top-2 -left-2 bg-yellow-400 text-slate-900 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border border-yellow-600 z-10">{{ getTrainCount(train.id) }}両</div>
         </div>
       </div>
     </div>
 
     <!-- モーダル: 出発進行アニメーション -->
     <div v-if="showDepartureAnim" class="fixed inset-0 bg-white/90 z-50 flex items-center justify-center overflow-hidden">
-      <div class="w-full relative h-64 flex items-center justify-center">
+      <div class="w-full relative h-64 flex flex-col items-center justify-center">
         <!-- 軌跡 -->
         <div class="absolute inset-x-0 top-1/2 border-b-8 border-dashed border-slate-400 opacity-50"></div>
-        <img v-if="selectedTrainImage" :src="selectedTrainImage" class="w-[800px] animate-train-run train-img relative z-10" alt="Train">
+        
+        <div class="flex animate-train-run relative z-10 w-max items-end" v-if="selectedTrainData">
+          <!-- 先頭車両 -->
+          <img :src="selectedTrainData.src" class="h-28 w-auto train-img object-contain" alt="Head Train">
+          <!-- 中間車両 -->
+          <img v-for="i in Math.max(0, getTrainCount(selectedTrainData.id) - 1)" :key="i" :src="selectedTrainData.middleSrc" class="h-28 w-auto train-img object-contain" style="margin-left: -4px;" alt="Middle Train">
+        </div>
       </div>
     </div>
 
@@ -191,10 +198,10 @@
     <div v-if="gachaResult" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
       <div class="bg-white border-4 border-slate-800 rounded-3xl p-6 text-center max-w-sm w-full relative animate-bounce">
         <h3 class="text-xl font-extrabold text-slate-900 mb-4">
-          <span v-if="gachaResult.isNew">✨ あたらしい でんしゃ！ ✨</span>
-          <span v-else class="text-slate-500">💦 すでにもっている電車だった！ 💦</span>
+          <span v-if="gachaResult.isNew" class="text-yellow-500">✨ 新しいでんしゃ！ ✨</span>
+          <span v-else class="text-sky-500">✨ {{ gachaResult.count }}両目ゲット！ ✨</span>
         </h3>
-        <div class="p-4 rounded-xl border mb-4" :class="gachaResult.isNew ? 'bg-sky-50 border-sky-200' : 'bg-slate-50 border-slate-200'">
+        <div class="p-4 rounded-xl border mb-4 bg-sky-50 border-sky-200">
           <img :src="gachaResult.train.src" class="w-full h-32 object-contain train-img mb-2" alt="Train">
           <span class="font-bold text-lg block" :class="!gachaResult.isNew && 'text-slate-600'">{{ gachaResult.train.name }}</span>
           <span class="text-xs block" :class="gachaResult.isNew ? 'text-sky-600' : 'text-slate-400'">{{ gachaResult.train.desc }}</span>
@@ -409,15 +416,21 @@
         };
 
         const trainDatabase = [
-          { id: "hayabusa", name: "E5系はやぶさ", src: "images/hayabusa.jpg", desc: "みどりのしんかんせん", secret: false },
-          { id: "n700s", name: "N700S", src: "images/n700s.jpg", desc: "さいしんのしんかんせん", secret: false },
-          { id: "e7", name: "E7系かがやき", src: "images/e7.jpg", desc: "かっこいいブルー", secret: false },
-          { id: "komachi", name: "E6系こまち", src: "images/komachi.jpg", desc: "あかいしんかんせん", secret: false },
-          { id: "doctor_yellow", name: "ドクターイエロー", src: "images/doctor_yellow.jpg", desc: "みつかるとラッキー！", secret: false },
-          { id: "yamanote", name: "やまのてせん", src: "images/yamanote.jpg", desc: "ぐるぐるまわる みどりのでんしゃ", secret: false },
-          { id: "midosuji", name: "おおさかメトロ みどうすじせん", src: "images/midosuji.jpg", desc: "おおさかのちかてつ", secret: false },
-          { id: "kounotori", name: "とっきゅう こうのとり", src: "images/kounotori.jpg", desc: "しろいとっきゅうれっしゃ", secret: false },
-          { id: "alfax", name: "ALFA-X", src: "images/alfax.jpg", desc: "みらいのテストしゃりょう", secret: true }
+          { id: "hayabusa", name: "E5系はやぶさ", src: "images/hayabusa.jpg", middleSrc: "images/hayabusa_middle.jpg", desc: "みどりのしんかんせん", secret: false },
+          { id: "n700s", name: "N700S", src: "images/n700s.jpg", middleSrc: "images/n700s_middle.jpg", desc: "さいしんのしんかんせん", secret: false },
+          { id: "e7", name: "E7系かがやき", src: "images/e7.jpg", middleSrc: "images/e7_middle.jpg", desc: "かっこいいブルー", secret: false },
+          { id: "komachi", name: "E6系こまち", src: "images/komachi.jpg", middleSrc: "images/komachi_middle.jpg", desc: "あかいしんかんせん", secret: false },
+          { id: "doctor_yellow", name: "ドクターイエロー", src: "images/doctor_yellow.jpg", middleSrc: "images/doctor_yellow_middle.jpg", desc: "みつかるとラッキー！", secret: false },
+          { id: "yamanote", name: "やまのてせん", src: "images/yamanote.jpg", middleSrc: "images/yamanote_middle.jpg", desc: "ぐるぐるまわる みどりのでんしゃ", secret: false },
+          { id: "midosuji", name: "おおさかメトロ みどうすじせん", src: "images/midosuji.jpg", middleSrc: "images/midosuji_middle.jpg", desc: "おおさかのちかてつ", secret: false },
+          { id: "kounotori", name: "とっきゅう こうのとり", src: "images/kounotori.jpg", middleSrc: "images/kounotori_middle.jpg", desc: "しろいとっきゅうれっしゃ", secret: false },
+          { id: "e8", name: "E8系 つばさ", src: "images/e8_tsubasa_head.jpg", middleSrc: "images/e8_middle.jpg", desc: "あたらしくてかっこいい", secret: false },
+          { id: "800", name: "800系 つばめ", src: "images/800_tsubame_head.jpg", middleSrc: "images/800_middle.jpg", desc: "きゅうしゅうをしゅっぱつ", secret: false },
+          { id: "nex", name: "なりたエクスプレス", src: "images/nex_head.jpg", middleSrc: "images/nex_middle.jpg", desc: "くうこうへむかう", secret: false },
+          { id: "500", name: "500系 こだま", src: "images/500_kodama_head.jpg", middleSrc: "images/500_middle.jpg", desc: "まるくてながーいかたち", secret: false },
+          { id: "azusa", name: "とっきゅう あずさ", src: "images/azusa_head.jpg", middleSrc: "images/azusa_middle.jpg", desc: "やまをこえていく", secret: false },
+          { id: "225", name: "225系 しんかいそく", src: "images/225_shinkaisoku_head.jpg", middleSrc: "images/225_middle.jpg", desc: "はやくてべんり", secret: false },
+          { id: "alfax", name: "ALFA-X", src: "images/alfax.jpg", middleSrc: "images/alfax_middle.jpg", desc: "みらいのテストしゃりょう", secret: true }
         ];
 
         const baseTasks = [
@@ -618,14 +631,15 @@
           }
           
           const isNew = !isUnlocked(hit.id);
-          if (isNew) {
-            data.value.collectedTrains.push(hit.id);
-          }
-          gachaResult.value = { train: hit, isNew };
+          data.value.collectedTrains.push(hit.id);
+          const count = getTrainCount(hit.id);
+          gachaResult.value = { train: hit, isNew, count };
         };
+        const selectedTrainData = computed(() => {
+          return trainDatabase.find(t => t.id === data.value.selectedTrainId);
+        });
         const selectedTrainImage = computed(() => {
-          const t = trainDatabase.find(t => t.id === data.value.selectedTrainId);
-          return t ? t.src : '';
+          return selectedTrainData.value ? selectedTrainData.value.src : '';
         });
 
         // 達成率
@@ -669,6 +683,7 @@
 
         // ガチャ
         const isUnlocked = (id) => data.value.collectedTrains.includes(id);
+        const getTrainCount = (id) => data.value.collectedTrains.filter(tId => tId === id).length;
         const visibleTrains = computed(() => trainDatabase.filter(t => !t.secret || isUnlocked(t.id)));
         const selectTrain = (id) => { data.value.selectedTrainId = id; };
 
@@ -843,9 +858,9 @@
           data, trainDatabase, visibleTrains, baseTasks, selectedDate,
           changeDate, formatDateDisplay,
           dailyTaskCount, totalDailyTasks, isTaskDone, toggleTask, getCustomTasks, isAllDone,
-          departTrain, showDepartureAnim, selectedTrainImage,
+          departTrain, showDepartureAnim, selectedTrainImage, selectedTrainData,
           weeklyProgress, monthlyProgress,
-          isUnlocked, selectTrain, spinGacha, gachaResult,
+          isUnlocked, getTrainCount, selectTrain, spinGacha, gachaResult,
           nextDaySchedule, nextDayName,
           showSecretModal, secretTrainData, claimSecret,
           showPasscodeModal, passcodeInput, showParentDashboard, openParentModal, checkPasscode,
