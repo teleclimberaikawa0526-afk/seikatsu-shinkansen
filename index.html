@@ -215,7 +215,7 @@
       <div class="bg-gradient-to-b from-sky-900 to-indigo-900 border-4 border-yellow-300 rounded-3xl p-6 text-center max-w-md w-full relative shadow-2xl">
         <div class="animate-bounce mb-2 text-5xl">🏅</div>
         <h2 class="text-2xl font-extrabold text-yellow-300 mb-2">今月の目標達成！</h2>
-        <p class="text-sm font-bold text-white mb-6">達成率85%以上クリアで、シークレット車両をプレゼント！！</p>
+        <p class="text-sm font-bold text-white mb-6">達成率90%以上クリアで、シークレット車両をプレゼント！！</p>
         <div class="bg-white rounded-xl p-4 mb-6 relative overflow-hidden">
           <img :src="secretTrainData.src" class="w-full h-32 object-contain train-img" alt="Secret">
           <p class="text-lg font-extrabold text-slate-800 mt-2">{{ secretTrainData.name }}</p>
@@ -717,13 +717,15 @@
           
           if (d.getDate() >= 25 && !data.value.claimedSecrets.includes(monthKey)) {
             let done = 0; let total = 0;
-            for(let i=1; i<=d.getDate(); i++) {
+            // 月の最終日を取得 (翌月の0日目)
+            const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            for(let i=1; i<=lastDay; i++) {
               const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
               done += dailyTaskCount(ds);
               total += totalDailyTasks(ds);
             }
             const rate = total > 0 ? (done / total) * 100 : 0;
-            if (rate >= 85) {
+            if (rate >= 90) {
               const sec = trainDatabase.find(t => t.secret && !isUnlocked(t.id));
               if (sec) {
                 secretTrainData.value = sec;
