@@ -210,7 +210,7 @@
       </div>
     </div>
 
-    <!-- モーダル: 月末シークレット達成 -->
+        <!-- モーダル: 月末シークレット達成 -->
     <div v-if="showSecretModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
       <div class="bg-gradient-to-b from-sky-900 to-indigo-900 border-4 border-yellow-300 rounded-3xl p-6 text-center max-w-md w-full relative shadow-2xl">
         <div class="animate-bounce mb-2 text-5xl">🏅</div>
@@ -218,7 +218,11 @@
         <p class="text-sm font-bold text-white mb-6">達成率90%以上クリアで、シークレット車両をプレゼント！！</p>
         <div class="bg-white rounded-xl p-4 mb-6 relative overflow-hidden">
           <img :src="secretTrainData.src" class="w-full h-32 object-contain train-img" alt="Secret">
-          <p class="text-lg font-extrabold text-slate-800 mt-2">{{ secretTrainData.name }}</p>
+          <p class="text-lg font-extrabold text-slate-800 mt-2">
+            {{ secretTrainData.name }}
+            <span v-if="getTrainCount(secretTrainData.id) > 0" class="text-sm text-sky-600 block">（{{ getTrainCount(secretTrainData.id) + 1 }}両目！）</span>
+          </p>
+          <p class="text-xs font-bold text-slate-500 mt-1">{{ secretTrainData.desc }}</p>
         </div>
         <button @click="claimSecret" class="w-full bg-yellow-400 text-slate-900 py-3 rounded-xl font-extrabold text-lg">受け取る！</button>
       </div>
@@ -435,7 +439,8 @@
           { id: "skyliner", name: "特急スカイライナー", src: "images/skyliner.jpg", middleSrc: "images/skyliner_middle.jpg", desc: "くうこうへいくよ", secret: false },
           { id: "spacia", name: "特急スペーシア", src: "images/spacia.jpg", middleSrc: "images/spacia_middle.jpg", desc: "にっこうへいくよ", secret: false },
           { id: "redarrow", name: "特急ニューレッドアロー", src: "images/redarrow.jpg", middleSrc: "images/redarrow_middle.jpg", desc: "ちちぶへいくよ", secret: false },
-          { id: "alfax", name: "ALFA-X", src: "images/alfax.jpg", middleSrc: "images/alfax_middle.jpg", desc: "みらいのテストしゃりょう", secret: true }
+          { id: "alfax", name: "ALFA-X", src: "images/alfax.jpg", middleSrc: "images/alfax_middle.jpg", desc: "みらいのテストしゃりょう", secret: true },
+          { id: "l0", name: "L0系 リニアモーターカー", src: "images/l0.jpg", middleSrc: "images/l0_middle.jpg", desc: "ういてはしる ちょうでんどうリニア", secret: true }
         ];
 
         const baseTasks = [
@@ -499,12 +504,6 @@
 
         // Load data
         onMounted(() => {
-          fetch('https://holidays-jp.github.io/api/v1/date.json')
-            .then(res => res.json())
-            .then(json => { publicHolidays.value = json; })
-            .catch(e => console.error(e));
-
-
           const saved = localStorage.getItem(STORE_KEY);
           if (saved) {
             try {
@@ -513,6 +512,14 @@
             } catch (e) {}
           }
           checkMonthlySecret();
+
+          fetch('https://holidays-jp.github.io/api/v1/date.json')
+            .then(res => res.json())
+            .then(json => {
+              publicHolidays.value = json;
+              checkMonthlySecret();
+            })
+            .catch(e => console.error(e));
         });
 
         // Save data automatically
@@ -595,6 +602,7 @@
             }
             
             if (audioStarted.value) playCheckSound();
+            checkMonthlySecret();
           } else {
             // チェックを外した場合はマイルを戻す（不正防止）
             data.value.miles = Math.max(0, data.value.miles - 1);
@@ -717,6 +725,7 @@
 
         // シークレット判定 (月末)
         const checkMonthlySecret = () => {
+          if (showSecretModal.value) return;
           const d = new Date();
           const monthKey = `${d.getFullYear()}-${d.getMonth()+1}`;
           
@@ -731,17 +740,25 @@
             }
             const rate = total > 0 ? (done / total) * 100 : 0;
             if (rate >= 90) {
-              const sec = trainDatabase.find(t => t.secret && !isUnlocked(t.id));
+              const secretTrains = trainDatabase.filter(t => t.secret);
+              const unobtainedSecrets = secretTrains.filter(t => !isUnlocked(t.id));
+              // 未取得のシークレット車両があれば優先、すべて取得済みなら全シークレット車両からランダムで2両目以降をプレゼント
+              const pool = unobtainedSecrets.length > 0 ? unobtainedSecrets : secretTrains;
+              const sec = pool[Math.floor(Math.random() * pool.length)];
               if (sec) {
                 secretTrainData.value = sec;
                 showSecretModal.value = true;
-                data.value.claimedSecrets.push(monthKey);
               }
             }
           }
         };
 
         const claimSecret = () => {
+          const d = new Date();
+          const monthKey = `${d.getFullYear()}-${d.getMonth()+1}`;
+          if (!data.value.claimedSecrets.includes(monthKey)) {
+            data.value.claimedSecrets.push(monthKey);
+          }
           data.value.collectedTrains.push(secretTrainData.value.id);
           showSecretModal.value = false;
         };
